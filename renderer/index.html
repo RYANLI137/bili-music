@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: https: http:; media-src https: http: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>Bili Music</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="skinLayer" aria-hidden="true"></div>
+    <div id="app">
+      <aside id="sidebar">
+        <div class="side-top drag">
+          <div class="brand">
+            <span class="brand-logo" data-icon="biliMusic"></span>
+            <span>Bili Music</span>
+          </div>
+        </div>
+        <div class="side-search">
+          <span data-icon="search"></span>
+          <input id="sideSearch" type="text" placeholder="搜索 B 站 / 粘贴 BV 号或链接" spellcheck="false" />
+        </div>
+        <nav id="nav"></nav>
+        <div class="side-bottom">
+          <button class="side-btn user-btn" id="btnUser"></button>
+          <button class="side-btn icon-only" id="btnSkin" title="皮肤"><span data-icon="image"></span></button>
+          <button class="side-btn icon-only" id="btnSettings" title="设置"><span data-icon="gear"></span></button>
+        </div>
+      </aside>
+
+      <main id="main">
+        <header id="topbar" class="drag">
+          <div class="controls nodrag">
+            <button class="ctl" id="btnShuffle" title="随机播放"><span data-icon="shuffle"></span></button>
+            <button class="ctl" id="btnPrev" title="上一首"><span data-icon="prev"></span></button>
+            <button class="ctl big" id="btnPlay" title="播放"><span data-icon="play"></span></button>
+            <button class="ctl" id="btnNext" title="下一首"><span data-icon="next"></span></button>
+            <button class="ctl" id="btnRepeat" title="循环"><span data-icon="repeat"></span></button>
+          </div>
+
+          <div class="lcd nodrag" id="lcd">
+            <div class="lcd-cover" id="lcdCover"><span data-icon="note"></span></div>
+            <div class="lcd-body">
+              <div class="lcd-text">
+                <div class="lcd-title marquee" id="lcdTitle">Bili Music</div>
+                <div class="lcd-sub marquee" id="lcdSub">搜索 B 站，开始播放</div>
+              </div>
+              <div class="lcd-times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
+              <input type="range" id="seek" min="0" max="1000" value="0" />
+            </div>
+            <button class="ctl small" id="btnLcdFav" title="喜爱"><span data-icon="star"></span></button>
+          </div>
+
+          <div class="right-controls nodrag">
+            <button class="quality-btn" id="btnVersion" title="切换版本">版本</button>
+            <button class="quality-btn" id="btnQuality" title="音质">音质</button>
+            <button class="ctl small" id="btnWatch" title="观看原视频"><span data-icon="video"></span></button>
+            <button class="ctl small" id="btnDownload" title="下载"><span data-icon="download"></span></button>
+            <span class="ctl small" data-icon="volume" id="volIcon"></span>
+            <input type="range" id="volume" min="0" max="100" value="80" />
+            <button class="ctl small" id="btnQueue" title="播放队列"><span data-icon="list"></span></button>
+          </div>
+          <div class="overlay-spacer"></div>
+        </header>
+
+        <div id="workspace">
+          <section id="content"></section>
+          <aside id="queuePanel" class="hidden">
+            <div class="queue-head">
+              <h3>待播清单</h3>
+              <div class="queue-head-actions">
+                <button class="link-btn" id="btnClearQueue">清除</button>
+                <button class="ctl small" id="btnCloseQueue" title="关闭"><span data-icon="x"></span></button>
+              </div>
+            </div>
+            <div id="queueList"></div>
+          </aside>
+        </div>
+      </main>
+    </div>
+
+    <div id="np">
+      <div class="np-bg"><div class="np-bg-img" id="npBgImg"></div></div>
+      <div class="np-danmaku" id="npDanmaku" aria-hidden="true"></div>
+      <div class="np-top drag">
+        <button class="np-icon nodrag" id="npClose" title="收起"><span data-icon="chevronDown"></span></button>
+      </div>
+      <div class="np-body">
+        <div class="np-left">
+          <div class="turntable">
+            <div class="tt-disc"><div class="tt-label" id="npLabel"></div><div class="tt-hole"></div></div>
+            <div class="tt-arm"><div class="tt-pivot"></div><div class="tt-rod"></div><div class="tt-head"></div></div>
+            <div class="tt-led"></div>
+          </div>
+        </div>
+        <div class="np-right">
+          <div class="np-title marquee" id="npTitle"></div>
+          <div class="np-artist marquee" id="npArtist"></div>
+          <div class="np-lyrics" id="npLyrics"></div>
+          <div class="np-lrc-tools">
+            <span id="npLrcSource"></span>
+            <button class="np-chip" id="npLrcSearch">搜索歌词</button>
+            <button class="np-chip" id="npOffMinus" title="歌词提前 0.5 秒">-0.5s</button>
+            <span id="npOffset">偏移 0s</span>
+            <button class="np-chip" id="npOffPlus" title="歌词延后 0.5 秒">+0.5s</button>
+          </div>
+        </div>
+      </div>
+      <div class="np-bar">
+        <div class="np-mini">
+          <div class="np-mini-text">
+            <div class="marquee" id="npMiniTitle"></div>
+          </div>
+          <button class="np-icon" id="npFav" title="喜爱"><span data-icon="star"></span></button>
+          <button class="np-icon" id="npMore" title="更多"><span data-icon="more"></span></button>
+        </div>
+        <div class="np-center">
+          <div class="np-ctls">
+            <button class="np-icon" data-ctl="shuffle" title="随机播放"><span data-icon="shuffle"></span></button>
+            <button class="np-icon" data-ctl="prev" title="上一首"><span data-icon="prev"></span></button>
+            <button class="np-icon np-play" data-ctl="play" title="播放"><span data-icon="play"></span></button>
+            <button class="np-icon" data-ctl="next" title="下一首"><span data-icon="next"></span></button>
+            <button class="np-icon" data-ctl="repeat" title="循环"><span data-icon="repeat"></span></button>
+          </div>
+          <div class="np-progress">
+            <span id="npCur">0:00</span>
+            <input type="range" id="npSeek" min="0" max="1000" value="0" />
+            <span id="npDur">0:00</span>
+          </div>
+        </div>
+        <div class="np-right-ctls">
+          <button class="quality-btn np" id="npDmToggle" title="弹幕开关">弹幕</button>
+          <button class="quality-btn np" id="npMixBeta" title="无缝衔接其他歌曲（Beta）">衔接β</button>
+          <button class="quality-btn np" id="npVersion" title="切换版本">版本</button>
+          <button class="quality-btn np" id="npQuality" title="音质">音质</button>
+          <button class="np-icon" id="npWatch" title="观看原视频"><span data-icon="video"></span></button>
+          <button class="np-icon" id="npDownload" title="下载"><span data-icon="download"></span></button>
+          <span class="np-icon" data-icon="volume" id="npVolIcon"></span>
+          <input type="range" id="npVolume" min="0" max="100" value="80" />
+          <button class="np-icon" id="npQueue" title="待播清单"><span data-icon="list"></span></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="ctxMenu" class="menu hidden"></div>
+    <div id="modalRoot"></div>
+    <div id="toast"></div>
+    <audio id="audio" preload="auto"></audio>
+    <audio id="audio2" preload="auto"></audio>
+
+    <script src="icons.js"></script>
+    <script src="mixengine.js"></script>
+    <script src="seam.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

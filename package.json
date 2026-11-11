@@ -1,0 +1,95 @@
+{
+  "name": "bili-music",
+  "version": "1.0.4",
+  "description": "从 B 站搜索歌曲 / Live 并导入歌单的桌面音乐播放器",
+  "main": "main.js",
+  "author": "Bili Music",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RYANLI137/bili-music.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "prepare:veloura": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-veloura.ps1",
+    "predist": "npm run prepare:veloura",
+    "dist": "electron-builder --win",
+    "release": "electron-builder --win --publish always",
+    "build:native": "cmake -S native/mixengine -B native/mixengine/build && cmake --build native/mixengine/build --config Release"
+  },
+  "build": {
+    "appId": "com.local.bilimusic",
+    "productName": "Bili Music",
+    "afterPack": "scripts/after-pack-icon.js",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "RYANLI137",
+        "repo": "bili-music",
+        "releaseType": "release"
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-video.js",
+      "src/**/*",
+      "renderer/**/*",
+      "build/icon.*",
+      "build/thumbar/**/*",
+      "vendor/bridge/**/*",
+      "!**/.env",
+      "!**/.env.*",
+      "!**/library.json",
+      "!**/*cookie*",
+      "!**/*session*"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/veloura-runtime",
+        "to": "veloura-runtime",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "native/mixengine",
+        "to": "mixengine-src",
+        "filter": [
+          "**/*",
+          "!build/**"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Bili Music",
+      "installerLanguages": [
+        "zh_CN",
+        "en_US"
+      ],
+      "language": "2052",
+      "artifactName": "BiliMusic-Setup-${version}.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "rcedit": "^5.0.1"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  }
+}
