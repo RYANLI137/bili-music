@@ -146,7 +146,6 @@ const search = {
   keyword: '',
   mode: 'all',
   order: 'totalrank',
-  music: false,
   /** bili | plugins | all */
   scope: 'all',
   page: 1,
@@ -4675,7 +4674,7 @@ async function loadSearchMix(key) {
     const seen = new Set();
     home.mixes[key] = pages
       .flatMap((p) => p.list)
-      .filter((v) => v.duration >= 60 && v.duration <= (def.max || 720) && !seen.has(v.bvid) && seen.add(v.bvid))
+      .filter((v) => v.duration >= 60 && v.duration <= (def.max || 720) && MusicFilter.isMusicHit(v, '') && !seen.has(v.bvid) && seen.add(v.bvid))
       .slice(0, 40);
     renderHomeIfVisible();
   } catch (_) {}
@@ -4903,6 +4902,19 @@ async function saveMix(mix) {
 function renderHome() {
   if (!home.loaded) loadHome();
   const scrolls = new Map($$('.shelf', content).map((s) => [s.dataset.shelf, s.scrollLeft]));
+  const hour = new Date().getHours();
+  const hello = hour < 5 ? '夜深了' : hour < 11 ? '早上好' : hour < 14 ? '中午好' : hour < 18 ? '下午好' : '晚上好';
+  const who = account?.name ? `，${esc(account.name)}` : '';
+  const intro = `<div class="home-intro">
+      <div class="home-intro-kicker">${hello}${who}</div>
+      <div class="home-intro-title">Bili Music</div>
+      <p class="home-intro-lead">方便听 B 站歌曲的小玩意。</p>
+      <p class="home-intro-desc">在这里搜索歌名、歌手或 Live，把合集 / 多 P 拆成单曲播放；整理歌单、看歌词、无缝切歌。登录 B 站后可按兴趣推荐；设置里还能接入 MusicFree 兼容音源。</p>
+      <div class="home-intro-actions">
+        <button type="button" class="pill-btn primary" data-act="focus-search">${icon('search')}去搜索</button>
+        ${account ? '' : `<button type="button" class="pill-btn" data-act="login">${icon('bili')}登录 B 站</button>`}
+      </div>
+    </div>`;
   const banner = account
     ? ''
     : `<div class="login-banner">${icon('bili', 'xl')}
@@ -4910,6 +4922,7 @@ function renderHome() {
         <button class="pill-btn primary" data-act="login">登录</button></div>`;
   content.innerHTML = `<div class="page">
     <div class="page-title">主页</div>
+    ${intro}
     ${banner}
     ${mixRowHtml('feature', '专属精选推荐', ['picks', 'hot', 'b0', 'live', 'fresh'])}
     ${feedShelfHtml()}
@@ -5000,8 +5013,6 @@ function renderSearch() {
       ${MODES.map((m) => `<button class="chip ${s.mode === m.id ? 'on' : ''}" data-mode="${m.id}">${m.icon ? icon(m.icon) : ''}${m.label}</button>`).join('')}
       <span class="sep"></span>
       ${ORDERS.map((o) => `<button class="chip ${s.order === o.id ? 'on' : ''}" data-order="${o.id}">${o.label}</button>`).join('')}
-      <span class="sep"></span>
-      <button class="chip ${s.music ? 'on' : ''}" data-act="toggle-music">仅音乐区</button>
     </div>
     <div class="results">${resultsHtml()}</div>
   </div>`;
@@ -5014,8 +5025,8 @@ function resultsHtml() {
   if (s.error && !s.list.length) return `<div class="empty">${icon('x')}搜索失败：${esc(s.error)}</div>`;
   if (!s.list.length)
     return s.done
-      ? `<div class="empty">${icon('search')}没有找到相关结果</div>`
-      : `<div class="empty">${icon('bili')}输入关键词搜索 B 站或插件音源<br>合集 / 多 P 会自动拆成单曲 · 设置里可安装 MusicFree 兼容插件</div>`;
+      ? `<div class="empty">${icon('search')}没有找到相关音乐</div>`
+      : `<div class="empty">${icon('bili')}输入关键词搜索音乐<br>只显示歌曲 / 原声 · 有更高音质或其他音源时会标在结果上</div>`;
   const rows = s.list
     .map((r, i) => {
       const plugin = r.kind === 'plugin' || !!r.platform;
@@ -5029,11 +5040,13 @@ function resultsHtml() {
         <div class="res-title" title="${esc(r.title)}">${esc(r.title)}</div>
         <div class="res-meta">
           ${plugin ? `<span class="src-badge">${esc(r.platform || '插件')}</span>` : ''}
+          ${r.qualityLabel && !plugin ? `<span class="src-badge">${esc(r.qualityLabel)}</span>` : ''}
           <span>${esc(author)}</span>
           ${r.album ? `<span title="${esc(r.album)}">${esc(r.album.length > 28 ? r.album.slice(0, 28) + '…' : r.album)}</span>` : ''}
           ${r.play != null && !r.album && !plugin ? `<span>播放 ${fmtCount(r.play)}</span>` : ''}
           ${r.pubdate && !r.album && !plugin ? `<span>${fmtDate(r.pubdate)}</span>` : ''}
           ${r.pages > 1 && r.page ? `<span>P${r.page}/${r.pages}</span>` : ''}
+          ${r.better ? `<button type="button" class="better-btn" data-act="res-better" title="${esc(r.better.title || '')}">更好音源 · ${esc(r.betterLabel || '高音质')}</button>` : ''}
         </div>
       </div>
       <div class="res-actions">
@@ -5080,6 +5093,10 @@ function singlesFromInfo(info, meta = {}) {
     play: meta.play,
     pubdate: meta.pubdate,
     mid: info.mid || meta.mid,
+    tag: meta.tag || '',
+    desc: meta.desc || '',
+    typeid: meta.typeid,
+    typename: meta.typename,
   };
   // 分 P 合集：每 P 一首
   if (info.pages?.length > 1) {
@@ -5174,22 +5191,36 @@ async function doSearch(page = 1) {
     } else {
       let biliList = [];
       let biliPages = 0;
+      let fetchedPage = page;
       const wantBili = search.scope !== 'plugins';
       const wantPlugins = search.scope !== 'bili' && page === 1;
 
       if (wantBili) {
         const mode = MODES.find((m) => m.id === search.mode);
-        const r = await api.search({
-          keyword: mode.suffix ? `${kw} ${mode.suffix}` : kw,
-          page,
-          order: search.order,
-          tids: search.music ? 3 : 0,
-        });
-        if (token !== search.token) return;
-        const expanded = await expandSearchHits(r.list || []);
-        if (token !== search.token) return;
-        biliList = expanded;
-        biliPages = r.numPages || 0;
+        const query = mode?.suffix ? `${kw} ${mode.suffix}` : kw;
+        let pageCursor = page;
+        let hops = 0;
+        const collected = [];
+        // 音乐区结果不够时再翻一两页，避免整页都是无关视频时列表是空的
+        while (hops < 3) {
+          const r = await api.search({
+            keyword: query,
+            page: pageCursor,
+            order: search.order,
+            tids: 3,
+          });
+          if (token !== search.token) return;
+          biliPages = r.numPages || biliPages;
+          const musicHits = MusicFilter.filterMusic(r.list || [], kw);
+          const expanded = await expandSearchHits(musicHits);
+          if (token !== search.token) return;
+          collected.push(...MusicFilter.filterMusic(expanded, kw));
+          hops += 1;
+          if (collected.length >= 8 || pageCursor >= biliPages) break;
+          pageCursor += 1;
+        }
+        biliList = collected;
+        fetchedPage = pageCursor;
       }
 
       let pluginList = [];
@@ -5219,8 +5250,9 @@ async function doSearch(page = 1) {
         seen.add(k);
         return true;
       });
-      search.list = page === 1 ? fresh : search.list.concat(fresh);
-      search.page = page;
+      const mergedList = page === 1 ? fresh : search.list.concat(fresh);
+      search.list = linkBetterSources(mergedList, kw);
+      search.page = fetchedPage;
       search.numPages = wantBili ? biliPages : 1;
     }
   } catch (e) {
@@ -5256,15 +5288,32 @@ async function withResult(r, fn, opts) {
   }
 }
 
+function linkBetterSources(list, keyword) {
+  const annotated = MusicFilter.annotateBetter(list, keyword);
+  for (const item of annotated) {
+    if (item.betterIndex >= 0) item.better = annotated[item.betterIndex];
+  }
+  return annotated;
+}
+
 function resultMenu(x, y, r) {
   const plugin = r?.kind === 'plugin' || (r?.platform && !r?.bvid);
   const items = [
     { label: '播放', icon: 'play', action: () => withResult(r, (t) => playList(t), { mode: 'all' }) },
+  ];
+  if (r?.better) {
+    items.push({
+      label: `更好音源 · ${r.betterLabel || '高音质'}`,
+      icon: 'play',
+      action: () => withResult(r.better, (t) => playList(t), { mode: 'all' }),
+    });
+  }
+  items.push(
     { label: '下一首播放', icon: 'queueNext', action: () => withResult(r, insertNext, { mode: 'all' }) },
     { label: '添加到待播清单', icon: 'list', action: () => withResult(r, appendQueue, { mode: 'all' }) },
     { sep: true },
     { label: '添加到歌单', icon: 'playlist', sub: playlistSubItems((pl) => withResult(r, (t) => addToPlaylist(pl, t))) },
-  ];
+  );
   if (!plugin) {
     items.push(
       { sep: true },
@@ -5309,6 +5358,14 @@ content.addEventListener('click', async (e) => {
   switch (act) {
     case 'login':
       return login();
+    case 'focus-search': {
+      const input = $('#sideSearch');
+      if (input) {
+        input.focus();
+        input.select();
+      }
+      return;
+    }
     case 'go-back':
       return goBack();
     case 'open-history':
@@ -5352,10 +5409,8 @@ content.addEventListener('click', async (e) => {
     case 'do-search':
       search.keyword = $('#searchInput').value.trim();
       return doSearch(1);
-    case 'toggle-music':
-      search.music = !search.music;
-      renderSearch();
-      return doSearch(1);
+    case 'res-better':
+      return r?.better && withResult(r.better, (t) => playList(t), { mode: 'all' });
     case 'load-more':
       return doSearch(search.page + 1);
     case 'res-play':

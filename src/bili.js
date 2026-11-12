@@ -103,7 +103,8 @@ const stripHtml = (s) =>
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
 
 const fixPic = (p) => (p ? (p.startsWith('//') ? 'https:' + p : p.replace(/^http:/, 'https:')) : '');
 
@@ -140,6 +141,9 @@ async function search({ keyword, page = 1, order = 'totalrank', tids = 0, durati
     pubdate: v.pubdate,
     tag: v.tag,
     desc: v.description,
+    typeid: v.typeid,
+    typename: v.typename,
+    pages: Number(v.videos) > 1 ? Number(v.videos) : 1,
   }));
   return { list, page: data.page, numPages: data.numPages, numResults: data.numResults };
 }
